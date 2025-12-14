@@ -4,6 +4,11 @@
 
 std::atomic<bool> connectCfmReceived{false};
 
+Host::~Host()
+{
+  disconnect();
+}
+
 bool Host::openPort()
 {
   serial_ = CreateFileA(
@@ -17,7 +22,7 @@ bool Host::openPort()
 
   if (serial_ == INVALID_HANDLE_VALUE)
   {
-    std::cout << "Failed to open " << comPort_ << std::endl;
+    std::cout << "[host] Failed to open " << comPort_ << std::endl;
     return false;
   }
 
@@ -33,10 +38,14 @@ bool Host::openPort()
 
   SetCommState(serial_, &dcb);
 
+  // Set timeouts to prevent blocking on a valid COM port
+  // even when the target is not responding
   COMMTIMEOUTS timeouts{};
   timeouts.ReadIntervalTimeout = 50;
   timeouts.ReadTotalTimeoutConstant = 50;
   timeouts.ReadTotalTimeoutMultiplier = 10;
+  timeouts.WriteTotalTimeoutConstant = 100;
+  timeouts.WriteTotalTimeoutMultiplier = 0;
   SetCommTimeouts(serial_, &timeouts);
 
   return true;
@@ -143,6 +152,7 @@ void Host::rxThread()
       // check if frame is valid
       if (res.valid)
       {
+        std::cout << "res.valid" << std::endl;
         lastRxTime_ = std::chrono::steady_clock::now();
         handleSignal(res.frame);
       }

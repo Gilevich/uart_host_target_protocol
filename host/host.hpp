@@ -9,7 +9,7 @@ class Host{
 public:
   explicit Host(const std::string& comPort)
   : comPort_{comPort}{};
-  ~Host(){};
+  ~Host();
 
   void connect();
 private:
