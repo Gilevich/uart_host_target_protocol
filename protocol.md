@@ -1,18 +1,17 @@
-# Description
+# Protocol Description
+
 Protocol is used for bidirectional communication between PC(host) and STM32F411E-disco(target) board using UART
 
----
+## UART config
 
-# UART config
 - Baud rate: 115200
 - Data bits: 8
 - Parity: None
 - Stop bits: 1
 - Flow control: None
 
----
+## Frame format
 
-# Frame format
 Each protocol frame has the following structure:
 | SOF | LEN | SIG_ID | PAYLOAD | CRC |
 
@@ -24,9 +23,8 @@ Each protocol frame has the following structure:
 | PAYLOAD | NB    | Data                                |
 | CRC     | 1B    | CRC-8 over SIG_ID + PAYLOAD         |
 
----
+## Signals
 
-# Signals
 | SIG_ID  | NAME                  | Direction         | Description                           |
 |---------|-----------------------|-------------------|---------------------------------------|
 | 0x01    | CONNECT_REQ           | Host  ->  Target  | Start connection                      |
@@ -37,9 +35,8 @@ Each protocol frame has the following structure:
 | 0x06    | BUTTON_CFM            | Host  ->  Target  | Confrim button pressed event          |
 | 0x07    | DISCONNECT_REQ        | Host  ->  Target  | End connection                        |
 
----
+## Host state machine
 
-# Host state machine
 | STATE           | Action                                                                            |
 |-----------------|-----------------------------------------------------------------------------------|
 | INIT            | Init timers, protocol statee reset, COM port closed                               |
@@ -47,9 +44,8 @@ Each protocol frame has the following structure:
 | CONNECTED       | Received CONNECT_CFM, sends first TICK_IND, waiting for events from the target    |
 | DISCONNECTING   | Send DISCONNECT_REQ and close COM port                                            |
 
----
+## Target state machine
 
-# Target state machine
 | STATE           | Action                                                                             |
 |-----------------|------------------------------------------------------------------------------------|
 | IDLE            | LED1 is blinking every 500ms, LED2 is off                                          |
@@ -57,9 +53,8 @@ Each protocol frame has the following structure:
 | BUTTON_PRESSED  | Waits confirmation from the host, LED1 blinkes 3 times every second and goes off   |
 | BUTTON_DISABLED | LED1 is off, LED2 is on, button pushes are ignoring                                |
 
----
+## Receiving frames state machine
 
-# Receiving frames state machine
 Host and target receiveres use the same rx state machine
 | STATE           | Description                                      |
 |-----------------|--------------------------------------------------|
@@ -70,9 +65,8 @@ Host and target receiveres use the same rx state machine
 
 Note: On CRC_READING failure, the frame is invalid and state returns to SOF_WAITING
 
----
+## Connection watchdog
 
-# Connection watchdog
 Host sends TICK_IND every second to the target
 Target respondes to the host by TICK_CFM
 Both host and target maintain a connection timeout
@@ -81,14 +75,11 @@ If no valid frame is received within 5 seconds, the connection is lost and then:
   - target returns to the IDLE state
 Only frames with valid CRC are considered as a valid frame
 
----
+## Other timeouts
 
-# Other timeouts
 Timeout threshold for CONNECT_CFM is 1 second.
 If CONNECT_CFM doesn't received:
   Host:
   - closes the COM port
   - prints "Check connection"
   - goes to the INIT state
-
----
