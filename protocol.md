@@ -45,7 +45,7 @@ Each protocol frame has the following structure:
 | INIT            | Init timers, protocol statee reset, COM port closed                               |
 | CONNECTING      | Open COM port and send CONNECT_REQ                                                |
 | CONNECTED       | Received CONNECT_CFM, sends first TICK_IND, waiting for events from the target    |
-| CLOSING         | Send DISCONNECT_REQ and close COM port                                            |
+| DISCONNECTING   | Send DISCONNECT_REQ and close COM port                                            |
 
 ---
 
@@ -67,9 +67,8 @@ Host and target receiveres use the same rx state machine
 | LEN_READING     | Read LEN byte                                    |
 | PAYLOAD_READING | Read SIG_ID and PAYLOAD bytes accoriding to LEN  |
 | CRC_READING     | Read CRC byte                                    |
-| VALIDATION      | Validate CRC and frame length                    |
 
-Note: On validation failure, the frame is invalid and state returns to SOF_WAITING
+Note: On CRC_READING failure, the frame is invalid and state returns to SOF_WAITING
 
 ---
 
