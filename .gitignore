@@ -1,1 +1,3 @@
-/build/
+host/build/
+target/build/
+target/Drivers/
