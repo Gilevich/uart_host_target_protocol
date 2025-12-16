@@ -1,0 +1,20 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    
+    {
+        "name": "Debug STM32F411",
+        "cwd": "${workspaceFolder}",
+        "executable": "${workspaceFolder}/target/build/Debug/target.elf",
+        "request": "launch",
+        "type": "cortex-debug",
+        "servertype": "stlink",
+        "device": "STM32F411VE",
+        "interface": "swd",
+        "svdFile": "${workspaceFolder}/target/Drivers/CMSIS/Device/ST/STM32F4xx/Include/STM32F411.svd"
+    }
+  ]
+}

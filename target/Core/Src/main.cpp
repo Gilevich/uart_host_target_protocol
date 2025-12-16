@@ -57,6 +57,7 @@ static void MX_USART1_UART_Init(void);
 static void MX_TIM10_Init(void);
 /* USER CODE BEGIN PFP */
 extern "C" void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart);
+extern "C" void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart);
 extern "C" void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 extern "C" void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
 /* USER CODE END PFP */
@@ -98,7 +99,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_TIM10_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start(&htim10);
+  HAL_TIM_Base_Start_IT(&htim10);
   Target target;
   targetPtr = &target;
   target.init();
@@ -180,7 +181,7 @@ static void MX_TIM10_Init(void)
   htim10.Instance = TIM10;
   htim10.Init.Prescaler = 99;
   htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim10.Init.Period = 9999;
+  htim10.Init.Period = 999;
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim10) != HAL_OK)
@@ -276,6 +277,15 @@ extern "C" void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
     targetPtr->receiver();
   }
 }
+
+extern "C" void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart)
+{
+  if (huart->Instance == USART1 && targetPtr)
+  {
+    targetPtr->onTxDone();
+  }
+}
+
 
 extern "C" void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 {

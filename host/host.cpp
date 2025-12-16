@@ -110,9 +110,9 @@ void Host::waitingConnectCfm()
   {
     auto now = std::chrono::steady_clock::now();
     auto diff = now - lastRxTime_;
-    if (diff > 3s)
+    if (diff > 5s)
     {
-      std::cout << "[host] Connection timeout" << std::endl;
+      std::cout << "[host] Connection timeout: " << std::endl;
       changeState(StateE::DISCONNECTING);
     }
     std::this_thread::sleep_for(1s);
@@ -122,17 +122,19 @@ void Host::waitingConnectCfm()
 void Host::mainLoop()
 {
   using namespace std::chrono_literals;
+  auto nextTickTime = std::chrono::steady_clock::now();
   while(state_ == StateE::CONNECTED)
   {
+    nextTickTime += 1s;
     sendTickInd();
     auto now = std::chrono::steady_clock::now();
     auto diff = now - lastRxTime_;
     if (diff > 5s)
     {
-      std::cout << "Connection lost" << std::endl;
+      std::cout << "Connection lost: " << diff.count() << "s" << std::endl;
       changeState(StateE::DISCONNECTING);
     }
-    std::this_thread::sleep_for(1s);
+    std::this_thread::sleep_until(nextTickTime);
   }
 }
 
