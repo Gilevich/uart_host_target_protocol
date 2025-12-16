@@ -19,8 +19,12 @@ void Target::init()
 
 void Target::process()
 {
+  if (!txBusy_ && !txQueue_.empty())
+  {
+    tryStartTx();
+  }
+
   // If no activity for 5 seconds, go to IDLE state
-  // printState(state_);
   if (state_ != StateE::IDLE && msCounter_ - lastRxTime_ >= TICK_TIMEOUT_MS)
   {
     changeState(StateE::IDLE);
@@ -29,21 +33,15 @@ void Target::process()
   if (state_ == StateE::IDLE && msCounter_ - lastBlinkTime_ >= LED1_IDLE_INTERVAL_MS)
   {
     lastBlinkTime_ = msCounter_;
-    // printMsg("IDLE: Toggle LED1 in IDLE\r\n");
     HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
   }
 
-  if (!txBusy_ && !txQueue_.empty())
-  {
-    tryStartTx();
-  }
 
-  if (state_ == StateE::BUTTON_DISABLED && msCounter_ - lastBlinkTime_ >= LED1_BUTTON_DISABLE_INTERVAL_MS)
+  if (state_ == StateE::BUTTON_DISABLED && msCounter_ - lastBlinkTime_ >= LED1_BUTTON_DISABLE_INTERVAL_MS/2)
   {
-    if (blinkCounter_++ < BUTTON_DISABLE_BLINKS)
+    if (blinkCounter_++ < BUTTON_DISABLE_BLINKS * 2)
     {
       lastBlinkTime_ = msCounter_;
-      // printMsg("IDLE: Toggle LED1 in BUTTON_DISABLED\r\n");
       HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
     }
   }
@@ -62,6 +60,7 @@ void Target::changeState(Target::StateE newState)
   }
 }
 
+// move out of rx interrupt, use queue
 void Target::receiver()
 {
   auto result = decoder_.processByte(rxByte_);
@@ -78,26 +77,25 @@ void Target::handleSignal(const protocol::FrameS& frame)
   switch (frame.sigId)
   {
   case protocol::signalIdE::CONNECT_REQ:
-    // printMsg("CONNECT_REQ received\r\n");
     sendFrame(protocol::signalIdE::CONNECT_CFM);
     changeState(StateE::CONNECTED);
     setLedsInConnectedState();
     break;
   case protocol::signalIdE::DISCONNECT_REQ:
-    // printMsg("DISCONNECT_REQ received\r\n");
     changeState(StateE::IDLE);
     break;
   case protocol::signalIdE::TICK_IND:
-    // printMsg("TICK_IND received\r\n");
-    if (state_ == StateE::CONNECTED)
+    if (state_ != StateE::IDLE)
     {
       sendFrame(protocol::signalIdE::TICK_CFM);
     }
     break;
   case protocol::signalIdE::BUTTON_CFM:
-    // printMsg("BUTTON_CFM received\r\n");
     changeState(StateE::BUTTON_DISABLED);
-    resetBlinkCounter();
+    blinkCounter_ = 1;
+    HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
+    led1State_ = true;
+    lastBlinkTime_ = msCounter_;
     break;
   default:
     break;
@@ -109,25 +107,6 @@ void Target::setLedsInConnectedState()
   HAL_GPIO_WritePin(LED1_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
 }
-
-// TODO: one function to send frames
-// void Target::sendConnectCfm()
-// {
-//   auto frame = protocol::encodeFrame(protocol::signalIdE::CONNECT_CFM, {});
-//   HAL_UART_Transmit(&huart1, frame.data(), frame.size(), HAL_MAX_DELAY);
-// }
-
-// void Target::sendTickCfm()
-// {
-//   auto frame = protocol::encodeFrame(protocol::signalIdE::TICK_CFM, {});
-//   HAL_UART_Transmit(&huart1, frame.data(), frame.size(), HAL_MAX_DELAY);
-// }
-
-// void Target::sendButtonInd()
-// {
-//   auto frame = protocol::encodeFrame(protocol::signalIdE::BUTTON_IND, {});
-//   HAL_UART_Transmit(&huart1, frame.data(), frame.size(), HAL_MAX_DELAY);
-// }
 
 void Target::sendFrame(protocol::signalIdE sig)
 {
@@ -158,11 +137,6 @@ void Target::onTxDone()
 void Target::incTimerMsCounter()
 {
   msCounter_++;
-}
-
-void Target::resetBlinkCounter()
-{
-  blinkCounter_ = 0;
 }
 
 void Target::handleButtonPress()

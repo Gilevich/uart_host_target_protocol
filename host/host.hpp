@@ -4,6 +4,7 @@
 #include <string>
 #include <windows.h>
 #include <thread>
+#include <atomic>
 
 class Host{
 public:
@@ -48,4 +49,5 @@ private:
   StateE state_ = StateE::INIT;
   std::chrono::steady_clock::time_point lastRxTime_;
   bool portOpened_ = false;
+  std::atomic<bool> tickCfmPending_{false};
 };

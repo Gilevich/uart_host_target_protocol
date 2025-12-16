@@ -60,15 +60,6 @@ void Host::closePort()
   }
 }
 
-void Host::sendSignal(protocol::signalIdE sig,
-                      const std::vector<uint8_t>& payload)
-{
-  auto frame = protocol::encodeFrame(sig, payload);
-  
-  DWORD written = 0;
-  WriteFile(serial_, frame.data(), static_cast<DWORD>(frame.size()), &written, nullptr);
-}
-
 void Host::connect()
 {
   changeState(StateE::INIT);
@@ -129,9 +120,11 @@ void Host::mainLoop()
     sendTickInd();
     auto now = std::chrono::steady_clock::now();
     auto diff = now - lastRxTime_;
+    auto diff_s = std::chrono::duration_cast<std::chrono::seconds>(diff).count();
+    std::cout << "time diff: " << diff_s << "s" << std::endl;
     if (diff > 5s)
     {
-      std::cout << "Connection lost: " << diff.count() << "s" << std::endl;
+      std::cout << "Connection lost: " << diff_s << "s" << std::endl;
       changeState(StateE::DISCONNECTING);
     }
     std::this_thread::sleep_until(nextTickTime);
@@ -154,7 +147,6 @@ void Host::rxThread()
       // check if frame is valid
       if (res.valid)
       {
-        std::cout << "res.valid" << std::endl;
         lastRxTime_ = std::chrono::steady_clock::now();
         handleSignal(res.frame);
       }
@@ -174,6 +166,8 @@ void Host::handleSignal(const protocol::FrameS& frame)
     }
     break;
   case protocol::signalIdE::TICK_CFM:
+    std::cout << "[host] Received TICK_CFM" << std::endl;
+    tickCfmPending_ = false;
     break;
   case protocol::signalIdE::BUTTON_IND:
     sendButtonCfm();
@@ -221,8 +215,23 @@ void Host::sendDisconnectReq()
 
 void Host::sendTickInd()
 {
+  if (tickCfmPending_)
+    return;
+
+  std::cout << "[host] Send TICK_IND" << std::endl;
+  tickCfmPending_ = true;
   sendSignal(protocol::signalIdE::TICK_IND);
 }
+
+void Host::sendSignal(protocol::signalIdE sig,
+                      const std::vector<uint8_t>& payload)
+{
+  auto frame = protocol::encodeFrame(sig, payload);
+  
+  DWORD written = 0;
+  WriteFile(serial_, frame.data(), static_cast<DWORD>(frame.size()), &written, nullptr);
+}
+
 
 void Host::sendButtonCfm()
 {

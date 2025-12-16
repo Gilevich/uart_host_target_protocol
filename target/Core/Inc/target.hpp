@@ -22,7 +22,6 @@ public:
   void receiver();
   void handleButtonPress();
   void sendButtonInd();
-  void resetBlinkCounter();
   void onTxDone();
   uint8_t rxByte_ = 0;
 private:
@@ -46,4 +45,5 @@ private:
   bool txBusy_ = false;
   void sendFrame(protocol::signalIdE sig);
   void tryStartTx();
+  bool led1State_ = false;
 };
