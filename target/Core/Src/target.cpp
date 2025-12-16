@@ -1,43 +1,59 @@
 extern "C" {
   #include "main.h"
 }
-#include <cstring>
-#include <cstdio>
+
 #include "target.hpp"
+
+#include <cstdint>
+
 extern UART_HandleTypeDef huart1;
 
-#define TICK_TIMEOUT_MS 5000
-#define LED1_IDLE_INTERVAL_MS 500
-#define LED1_BUTTON_DISABLE_INTERVAL_MS 1000
-#define BUTTON_DISABLE_BLINKS 3
+namespace
+{
+constexpr uint32_t TICK_TIMEOUT_MS                  = 5000;
+constexpr uint32_t LED1_IDLE_INTERVAL_MS            = 500;
+constexpr uint32_t LED1_BUTTON_DISABLE_INTERVAL_MS  = 1000;
+constexpr uint32_t BUTTON_DISABLE_BLINKS            = 3;
+}
 
+// -----------------------------------------------------------------------------
+// Initialization
+// -----------------------------------------------------------------------------
 void Target::init()
 {
   changeState(StateE::IDLE);
   HAL_UART_Receive_IT(&huart1, &rxByte_, 1);
 }
 
+// -----------------------------------------------------------------------------
+// Main processing loop
+// -----------------------------------------------------------------------------
 void Target::process()
 {
+  // Start UART TX if not already in progress
   if (!txBusy_ && !txQueue_.empty())
   {
     tryStartTx();
   }
 
-  // If no activity for 5 seconds, go to IDLE state
-  if (state_ != StateE::IDLE && msCounter_ - lastRxTime_ >= TICK_TIMEOUT_MS)
+  // Connecting timeout
+  if (state_ != StateE::IDLE &&
+     static_cast<uint32_t>(msCounter_ - lastRxTime_) >= TICK_TIMEOUT_MS)
   {
     changeState(StateE::IDLE);
   }
 
-  if (state_ == StateE::IDLE && msCounter_ - lastBlinkTime_ >= LED1_IDLE_INTERVAL_MS)
+  // LED1 blinking control in IDLE state
+  if (state_ == StateE::IDLE &&
+      static_cast<uint32_t>(msCounter_ - lastBlinkTime_) >= LED1_IDLE_INTERVAL_MS)
   {
     lastBlinkTime_ = msCounter_;
     HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
   }
 
-
-  if (state_ == StateE::BUTTON_DISABLED && msCounter_ - lastBlinkTime_ >= LED1_BUTTON_DISABLE_INTERVAL_MS/2)
+  // LED1 blinking control in BUTTON_DISABLED state
+  if (state_ == StateE::BUTTON_DISABLED &&
+      static_cast<uint32_t>(msCounter_ - lastBlinkTime_) >= LED1_BUTTON_DISABLE_INTERVAL_MS/2)
   {
     if (blinkCounter_++ < BUTTON_DISABLE_BLINKS * 2)
     {
@@ -47,6 +63,9 @@ void Target::process()
   }
 }
 
+// -----------------------------------------------------------------------------
+// State handling
+// -----------------------------------------------------------------------------
 void Target::changeState(Target::StateE newState)
 {
   state_ = newState;
@@ -55,12 +74,22 @@ void Target::changeState(Target::StateE newState)
   case StateE::IDLE:
     HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
     break;
+  case StateE::CONNECTED:
+    setLedsInConnectedState();
+    break;
+  case StateE::BUTTON_DISABLED:
+    blinkCounter_ = 1;
+    HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
+    lastBlinkTime_ = msCounter_;
   default:
     break;
   }
 }
 
-// move out of rx interrupt, use queue
+// -----------------------------------------------------------------------------
+// UART RX handling
+// -----------------------------------------------------------------------------
+// think about to move out of rx interrupt, use queue
 void Target::receiver()
 {
   auto result = decoder_.processByte(rxByte_);
@@ -68,9 +97,14 @@ void Target::receiver()
   {
     handleSignal(result.frame);
   }
+
+  // Restart UART RX interrupt
   HAL_UART_Receive_IT(&huart1, &rxByte_, 1);
 }
 
+// -----------------------------------------------------------------------------
+// Signal handling
+// -----------------------------------------------------------------------------
 void Target::handleSignal(const protocol::FrameS& frame)
 {
   lastRxTime_ = msCounter_;
@@ -79,7 +113,6 @@ void Target::handleSignal(const protocol::FrameS& frame)
   case protocol::signalIdE::CONNECT_REQ:
     sendFrame(protocol::signalIdE::CONNECT_CFM);
     changeState(StateE::CONNECTED);
-    setLedsInConnectedState();
     break;
   case protocol::signalIdE::DISCONNECT_REQ:
     changeState(StateE::IDLE);
@@ -92,28 +125,28 @@ void Target::handleSignal(const protocol::FrameS& frame)
     break;
   case protocol::signalIdE::BUTTON_CFM:
     changeState(StateE::BUTTON_DISABLED);
-    blinkCounter_ = 1;
-    HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
-    led1State_ = true;
-    lastBlinkTime_ = msCounter_;
     break;
   default:
     break;
   }
 }
 
+// -----------------------------------------------------------------------------
+// Leds handling in CONNECTED state
+// -----------------------------------------------------------------------------
 void Target::setLedsInConnectedState()
 {
   HAL_GPIO_WritePin(LED1_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
 }
 
+// -----------------------------------------------------------------------------
+// TX handling
+// -----------------------------------------------------------------------------
 void Target::sendFrame(protocol::signalIdE sig)
 {
   auto frame = protocol::encodeFrame(sig, {});
-
   txQueue_.push(frame);
-  // tryStartTx();
 }
 
 void Target::tryStartTx()
@@ -127,6 +160,9 @@ void Target::tryStartTx()
   HAL_UART_Transmit_IT(&huart1, f.data(), f.size());
 }
 
+// -----------------------------------------------------------------------------
+// Tx complete callback
+// -----------------------------------------------------------------------------
 void Target::onTxDone()
 {
   txQueue_.pop();
@@ -134,11 +170,17 @@ void Target::onTxDone()
   tryStartTx();
 }
 
+// -----------------------------------------------------------------------------
+// Increment ms counter
+// -----------------------------------------------------------------------------
 void Target::incTimerMsCounter()
 {
   msCounter_++;
 }
 
+// -----------------------------------------------------------------------------
+// External button press handler
+// -----------------------------------------------------------------------------
 void Target::handleButtonPress()
 {
   if (state_ == Target::StateE::CONNECTED)
@@ -146,27 +188,4 @@ void Target::handleButtonPress()
     changeState(Target::StateE::BUTTON_PRESSED);
     sendFrame(protocol::signalIdE::BUTTON_IND);
   }
-}
-
-void Target::printState(Target::StateE state)
-{
-  static char buf[32];  // must persist after function returns
-
-  int len = snprintf(buf, sizeof(buf),
-                     "state: %d\r\n",
-                     static_cast<int>(state));
-
-  if (len > 0)
-  {
-    HAL_UART_Transmit_IT(&huart1,
-                         reinterpret_cast<uint8_t*>(buf),
-                         len);
-  }
-}
-
-void Target::printMsg(const char* msg)
-{
-  HAL_UART_Transmit_IT(&huart1,
-                       reinterpret_cast<uint8_t*>(const_cast<char*>(msg)),
-                       strlen(msg));
 }
