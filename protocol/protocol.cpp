@@ -1,4 +1,5 @@
 #include "protocol.hpp"
+#include <array>
 
 namespace protocol
 {
@@ -59,7 +60,7 @@ namespace protocol
     case rxStateE::SOF_WAITING:
       if (byte == SOF)
       {
-        buffer_.clear();
+        bufferIndex_ = 0;
         state_ = rxStateE::LEN_READING;
       }
       break;
@@ -73,15 +74,15 @@ namespace protocol
       }
       else
       {
-        buffer_.clear();
+        bufferIndex_ = 0;
         state_ = rxStateE::PAYLOAD_READING;
       }
       break;
 
     case rxStateE::PAYLOAD_READING:
       // Store bytes in buffer
-      buffer_.push_back(byte);
-      if (buffer_.size() == len_)
+      buffer_[bufferIndex_++] = byte;
+      if (bufferIndex_ >= len_)
       {
         state_ = rxStateE::CRC_READING;
       }
@@ -90,7 +91,7 @@ namespace protocol
     case rxStateE::CRC_READING:
     {
       uint8_t received_crc = byte;
-      uint8_t calculated_crc = crc8(buffer_.data(), buffer_.size());
+      uint8_t calculated_crc = crc8(buffer_.data(), bufferIndex_);
       state_ = rxStateE::SOF_WAITING;
       if (received_crc != calculated_crc)
       {
@@ -101,7 +102,12 @@ namespace protocol
 
       FrameS frame;
       frame.sigId = static_cast<signalIdE>(buffer_[0]);
-      frame.payload.assign(buffer_.begin() + 1, buffer_.end());
+
+      // Start from index 1 to skip sigId
+      for (size_t i = 1; i < bufferIndex_; ++i)
+      {
+        frame.payload.push_back(buffer_[i]);
+      }
 
       res.valid = true;
       res.frame = frame;

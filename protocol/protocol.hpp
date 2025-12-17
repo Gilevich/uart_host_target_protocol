@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <vector>
+#include <array>
 
 namespace protocol
 {
@@ -78,6 +79,7 @@ namespace protocol
     };
     rxStateE state_ = rxStateE::SOF_WAITING;
     uint8_t len_ = 0;
-    std::vector<uint8_t> buffer_;
+    std::array<uint8_t, MAX_PAYLOAD + 1> buffer_;
+    size_t bufferIndex_ {0};
   };
 } // namespace protocol
