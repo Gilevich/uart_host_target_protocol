@@ -78,7 +78,7 @@ private:
   /**
    * @brief Handle received signal frame.
    */
-  void handleSignal(const protocol::FrameS& frame);
+  void handleSignal(const uint8_t* frame);
 
   /**
    * @brief Change internal FSM state.
@@ -116,5 +116,6 @@ private:
   // UART TX queue
   constexpr static size_t NUM_FRAMES = 4;
   RingBuffer<NUM_FRAMES, protocol::MAX_FRAME_SIZE> txQueue_;
+  RingBuffer<NUM_FRAMES, protocol::MAX_FRAME_SIZE> rxQueue_;
   bool txBusy_ {false};
 };

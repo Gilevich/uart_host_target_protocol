@@ -34,13 +34,12 @@ public:
     return true;
   }
 
-  bool front(const uint8_t*& frame, size_t& len) const
+  bool front(const uint8_t*& frame) const
   {
     if (count_ == 0)
       return false;
 
     frame = buffer_[tail_];
-    len = lengths_[tail_];
     return true;
   }
 

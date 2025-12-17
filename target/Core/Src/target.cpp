@@ -36,6 +36,16 @@ void Target::process()
     tryStartTx();
   }
 
+  if (!rxQueue_.empty())
+  {
+    const uint8_t* frame;
+    if (rxQueue_.front(frame))
+    {
+      handleSignal(frame);
+      rxQueue_.pop();
+    }
+  }
+
   // Connecting timeout
   if (state_ != StateE::IDLE &&
      static_cast<uint32_t>(msCounter_ - lastRxTime_) >= TICK_TIMEOUT_MS)
@@ -95,7 +105,7 @@ void Target::receiver()
   auto result = decoder_.processByte(rxByte_);
   if (result.valid)
   {
-    handleSignal(result.frame);
+    rxQueue_.push(reinterpret_cast<const uint8_t*>(&result.frame), result.frame.payload.size() + 1);
   }
 
   // Restart UART RX interrupt
@@ -105,10 +115,10 @@ void Target::receiver()
 // -----------------------------------------------------------------------------
 // Signal handling
 // -----------------------------------------------------------------------------
-void Target::handleSignal(const protocol::FrameS& frame)
+void Target::handleSignal(const uint8_t* frame)
 {
   lastRxTime_ = msCounter_;
-  switch (frame.sigId)
+  switch (static_cast<protocol::signalIdE>(frame[0])) // sigId is at index 0
   {
   case protocol::signalIdE::CONNECT_REQ:
     sendFrame(protocol::signalIdE::CONNECT_CFM);
@@ -150,7 +160,7 @@ void Target::sendFrame(protocol::signalIdE sig)
   if(!txQueue_.push(frame.data(), frameSize))
   {
     // TX queue full, frame dropped
-  };
+  }
 }
 
 void Target::tryStartTx()
@@ -159,11 +169,10 @@ void Target::tryStartTx()
     return;
 
   const uint8_t* frame;
-  size_t len;
-  if (txQueue_.front(frame, len))
+  if (txQueue_.front(frame))
   {
     txBusy_ = true;
-    HAL_UART_Transmit_IT(&huart1, frame, len);
+    HAL_UART_Transmit_IT(&huart1, frame, 3 + frame[1]); // LEN is at index 1
   }
 }
 
