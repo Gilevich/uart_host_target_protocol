@@ -108,7 +108,7 @@ namespace protocol
       // Start from index 1 to skip sigId
       for (size_t i = 1; i < bufferIndex_; ++i)
       {
-        frame.payload.push_back(buffer_[i]);
+        frame.payload[i - 1] = buffer_[i];
       }
 
       res.valid = true;

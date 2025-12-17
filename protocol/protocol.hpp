@@ -32,7 +32,7 @@ namespace protocol
   struct FrameS
   {
     signalIdE sigId;
-    std::vector<uint8_t> payload; ///< optional payload data
+    std::array<uint8_t, MAX_PAYLOAD + 1> payload; ///< optional payload data (+1 for sigId)
   };
 
   // Result of frame decoding
