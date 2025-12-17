@@ -145,8 +145,9 @@ void Target::setLedsInConnectedState()
 // -----------------------------------------------------------------------------
 void Target::sendFrame(protocol::signalIdE sig)
 {
-  auto frame = protocol::encodeFrame(sig, {});
-  txQueue_.push(frame);
+  std::array<uint8_t, Protocol::MAX_FRAME_SIZE> frame;
+  size_t frameSize = protocol::encodeFrame(sig, {}, 0, frame.data());
+  txQueue_.push(std::vector<uint8_t>(frame.data(), frame.data() + frameSize));
 }
 
 void Target::tryStartTx()

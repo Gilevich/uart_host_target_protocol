@@ -26,26 +26,28 @@ namespace protocol
   //   [SOF][LEN][SIG][PAYLOAD...][CRC]
   // CRC is calculated over [SIG][PAYLOAD...]
   // ---------------------------------------------------------------------------
-  std::vector<uint8_t> encodeFrame(
+  size_t encodeFrame(
     signalIdE sigId,
-    const std::vector<uint8_t>& payload)
+    const uint8_t* payload,
+    size_t payloadLen,
+    uint8_t* outFrame)
   {
-    std::vector<uint8_t> frame;
-    frame.reserve(4 + payload.size()); // SOF + LEN + SIG + PAYLOAD + CRC
-  
-    frame.push_back(SOF);
+    size_t byteIndex{0};
+    outFrame[byteIndex++] = SOF;
+    
+    uint8_t len = static_cast<uint8_t>(1 + payloadLen);
+    outFrame[byteIndex++] = len;
 
-    uint8_t len = static_cast<uint8_t>(1 + payload.size());
-    frame.push_back(len);
+    outFrame[byteIndex++] = static_cast<uint8_t>(sigId);
 
-    frame.push_back(static_cast<uint8_t>(sigId));
+    for (size_t i = 0; i < payloadLen; ++i)
+    {
+      outFrame[byteIndex++] = payload[i];
+    }
+    uint8_t crc = crc8(&outFrame[2], len);
+    outFrame[byteIndex++] = crc;
 
-    frame.insert(frame.end(), payload.begin(), payload.end());
-
-    uint8_t crc = crc8(&frame[2], len);
-    frame.push_back(crc);
-
-    return frame;
+    return byteIndex;
   }
 
   // ---------------------------------------------------------------------------

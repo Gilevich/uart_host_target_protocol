@@ -13,6 +13,7 @@ namespace protocol
   constexpr uint8_t SOF = 0xAA;
   // Maximum payload size
   constexpr size_t MAX_PAYLOAD = 32;
+  constexpr size_t MAX_FRAME_SIZE = 4 + MAX_PAYLOAD; // SOF + LEN + SIG + PAYLOAD + CRC
 
   // Signal IDs
   enum class signalIdE : uint8_t
@@ -57,9 +58,11 @@ namespace protocol
    * - PAYLOAD = optional payload data
    * - CRC = CRC8 over [LEN][SIG][PAYLOAD...]
    */
-  std::vector<uint8_t> encodeFrame(
+  size_t encodeFrame(
     signalIdE sigId,
-    const std::vector<uint8_t>& payload);
+    const uint8_t* payload,
+    size_t payloadLen,
+    uint8_t* outFrame);
   
   // CRC8 calculation
   uint8_t crc8(const uint8_t* data, size_t);

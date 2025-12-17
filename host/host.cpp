@@ -236,10 +236,11 @@ void Host::sendTickInd()
 void Host::sendSignal(protocol::signalIdE sig,
                       const std::vector<uint8_t>& payload)
 {
-  auto frame = protocol::encodeFrame(sig, payload);
-  
+  std::array<uint8_t, protocol::MAX_FRAME_SIZE> frame;
+  size_t frameSize = protocol::encodeFrame(sig, payload.data(), payload.size(), frame.data());
+
   DWORD written = 0;
-  WriteFile(serial_, frame.data(), static_cast<DWORD>(frame.size()), &written, nullptr);
+  WriteFile(serial_, frame.data(), static_cast<DWORD>(frameSize), &written, nullptr);
 }
 
 void Host::sendButtonCfm()
