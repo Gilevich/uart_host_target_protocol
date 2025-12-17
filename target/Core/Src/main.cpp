@@ -99,8 +99,11 @@ int main(void)
   MX_USART1_UART_Init();
   MX_TIM10_Init();
   /* USER CODE BEGIN 2 */
+  // Start 1 ms system tick timer
   HAL_TIM_Base_Start_IT(&htim10);
-  Target target;
+
+  // Initialize target logic
+  static Target target;
   targetPtr = &target;
   target.init();
   /* USER CODE END 2 */
@@ -270,9 +273,12 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+// -----------------------------------------------------------------------------
+// Interrupt callbacks
+// -----------------------------------------------------------------------------
 extern "C" void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
 {
-  if (huart->Instance == USART1)
+  if (huart->Instance == USART1 && targetPtr)
   {
     targetPtr->receiver();
   }
@@ -286,10 +292,9 @@ extern "C" void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart)
   }
 }
 
-
 extern "C" void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 {
-  if (htim->Instance == TIM10)
+  if (htim->Instance == TIM10 && targetPtr)
   {
     targetPtr->incTimerMsCounter();
   }
@@ -297,7 +302,7 @@ extern "C" void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
 
 extern "C" void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  if (GPIO_Pin == GPIO_PIN_0)
+  if (GPIO_Pin == GPIO_PIN_0 && targetPtr)
   {
     targetPtr->handleButtonPress();
   }

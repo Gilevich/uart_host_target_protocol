@@ -2,6 +2,10 @@
 
 namespace protocol
 {
+  // ---------------------------------------------------------------------------
+  // CRC8
+  // Polynomial: x^8 + x^2 + x + 1 (0x07)
+  // ---------------------------------------------------------------------------
   uint8_t crc8(const uint8_t* data, size_t len)
   {
     uint8_t crc = 0x00;
@@ -15,11 +19,18 @@ namespace protocol
     return crc;
   }
 
+  // ---------------------------------------------------------------------------
+  // Frame encoder
+  // Format:
+  //   [SOF][LEN][SIG][PAYLOAD...][CRC]
+  // CRC is calculated over [SIG][PAYLOAD...]
+  // ---------------------------------------------------------------------------
   std::vector<uint8_t> encodeFrame(
     signalIdE sigId,
     const std::vector<uint8_t>& payload)
   {
     std::vector<uint8_t> frame;
+    frame.reserve(4 + payload.size()); // SOF + LEN + SIG + PAYLOAD + CRC
   
     frame.push_back(SOF);
 
@@ -36,9 +47,13 @@ namespace protocol
     return frame;
   }
 
+  // ---------------------------------------------------------------------------
+  // Frame decoder (byte-by-byte)
+  // ---------------------------------------------------------------------------  
   frameResult Decoder::processByte(uint8_t byte)
   {
-    frameResult res = {0};
+    frameResult res {};
+
     switch (state_)
     {
     case rxStateE::SOF_WAITING:
@@ -51,8 +66,9 @@ namespace protocol
 
     case rxStateE::LEN_READING:
       len_ = byte;
-      if (len_ == 0 || len_ > MAX_PAYLOAD + 1)
+      if (len_ == 0U || len_ > (MAX_PAYLOAD + 1U))
       {
+        // Invalid length, reset state
         state_ = rxStateE::SOF_WAITING;
       }
       else
@@ -63,6 +79,7 @@ namespace protocol
       break;
 
     case rxStateE::PAYLOAD_READING:
+      // Store bytes in buffer
       buffer_.push_back(byte);
       if (buffer_.size() == len_)
       {
@@ -93,4 +110,4 @@ namespace protocol
     }
     return res;
   }
-}
+} // namespace protocol

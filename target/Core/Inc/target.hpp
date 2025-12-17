@@ -10,7 +10,6 @@
  * @brief Target device application logic.
  *
  * All time-related logic is driven by a 1 ms system tick
- * via incTimerMsCounter().
  */
 class Target
 {

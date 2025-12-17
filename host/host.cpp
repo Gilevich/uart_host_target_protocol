@@ -2,13 +2,15 @@
 #include <iostream>
 #include <atomic>
 
-std::atomic<bool> connectCfmReceived{false};
+Host::Host(const std::string& comPort)
+  : comPort_{comPort}{};
 
 Host::~Host()
 {
   disconnect();
 }
 
+// COM port handling
 bool Host::openPort()
 {
   serial_ = CreateFileA(
@@ -60,13 +62,15 @@ void Host::closePort()
   }
 }
 
+// Main connection logic
 void Host::connect()
 {
-  changeState(StateE::INIT);
+  init();
   waitingConnectCfm();
   mainLoop();
 }
 
+// State machine
 void Host::changeState(StateE newState)
 {
   state_ = newState;
@@ -74,7 +78,6 @@ void Host::changeState(StateE newState)
   {
   case StateE::INIT:
     std::cout << "[host] Initialization" << std::endl;
-    init();
     break;
 
   case StateE::CONNECTING:
@@ -88,11 +91,11 @@ void Host::changeState(StateE newState)
 
   case StateE::DISCONNECTING:
     std::cout << "[host] Disconnecting" << std::endl;
-    disconnect();
     break;
   }
 }
 
+// Wait for CONNECT_CFM with timeout
 void Host::waitingConnectCfm()
 {
   using namespace std::chrono_literals;
@@ -110,6 +113,7 @@ void Host::waitingConnectCfm()
   }
 }
 
+// Main loop in CONNECTED state
 void Host::mainLoop()
 {
   using namespace std::chrono_literals;
@@ -131,6 +135,7 @@ void Host::mainLoop()
   }
 }
 
+// RX handling thread
 void Host::rxThread()
 {
   uint8_t byte;
@@ -154,6 +159,7 @@ void Host::rxThread()
   }
 }
 
+// Signal handling
 void Host::handleSignal(const protocol::FrameS& frame)
 {
   switch (frame.sigId)
@@ -177,11 +183,13 @@ void Host::handleSignal(const protocol::FrameS& frame)
   }
 }
 
+// Initialization
 bool Host::init()
 {
   if (!openPort())
     return false;
 
+  changeState(StateE::INIT);
   portOpened_ = true;
   lastRxTime_ = std::chrono::steady_clock::now();
   changeState(StateE::CONNECTING);
@@ -191,6 +199,7 @@ bool Host::init()
   return true;
 }
 
+// Disconnection
 void Host::disconnect()
 {
   portOpened_ = false;
@@ -200,6 +209,7 @@ void Host::disconnect()
   closePort();
 }
 
+// Signal sending
 void Host::sendConnectReq()
 {
   std::cout << "[host] Send CONNECT_REQ" << std::endl;
@@ -231,7 +241,6 @@ void Host::sendSignal(protocol::signalIdE sig,
   DWORD written = 0;
   WriteFile(serial_, frame.data(), static_cast<DWORD>(frame.size()), &written, nullptr);
 }
-
 
 void Host::sendButtonCfm()
 {
