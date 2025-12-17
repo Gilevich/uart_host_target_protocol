@@ -81,7 +81,7 @@ void Host::changeState(StateE newState)
     break;
 
   case StateE::CONNECTING:
-    std::cout << "[host] Connectin to the target ..." << std::endl;
+    std::cout << "[host] Connection to the target ..." << std::endl;
     break;
 
   case StateE::CONNECTED:
@@ -125,7 +125,6 @@ void Host::mainLoop()
     auto now = std::chrono::steady_clock::now();
     auto diff = now - lastRxTime_;
     auto diff_s = std::chrono::duration_cast<std::chrono::seconds>(diff).count();
-    std::cout << "time diff: " << diff_s << "s" << std::endl;
     if (diff > 5s)
     {
       std::cout << "Connection lost: " << diff_s << "s" << std::endl;
@@ -155,6 +154,11 @@ void Host::rxThread()
         lastRxTime_ = std::chrono::steady_clock::now();
         handleSignal(res.frame);
       }
+    }
+    else
+    {
+      // No data read, small sleep to avoid busy wait
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
   }
 }
@@ -245,7 +249,7 @@ void Host::sendSignal(protocol::signalIdE sig,
 
 void Host::sendButtonCfm()
 {
-  std::cout << "[host] Button pressed" << std::endl;
+  std::cout << "[host] Received BUTTON_IND" << std::endl;
   std::cout << "[host] Send BUTTON_CFM" << std::endl;
   sendSignal(protocol::signalIdE::BUTTON_CFM);
 }
