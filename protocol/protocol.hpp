@@ -11,7 +11,6 @@ namespace protocol
 
   // Start of Frame Marker
   constexpr uint8_t SOF = 0xAA;
-  // Maximum payload size
   constexpr size_t MAX_PAYLOAD = 32;
   constexpr size_t MAX_FRAME_SIZE = 4 + MAX_PAYLOAD; // SOF + LEN + SIG + PAYLOAD + CRC
 

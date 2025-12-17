@@ -1,10 +1,10 @@
 #pragma once
 
 #include "protocol.hpp"
+#include "ringBuffer.hpp"
 
 #include <cstdint>
-#include <queue>
-#include <vector>
+#include <cstring>
 
 /**
  * @brief Target device application logic.
@@ -110,11 +110,11 @@ private:
   volatile uint32_t lastRxTime_ {0};
 
   // LED1 blinking control
-  // static constexpr uint32_t LED1_IDLE_INTERVAL_MS = 1000;
   uint32_t lastBlinkTime_ {0};
   uint32_t blinkCounter_ {0};
 
   // UART TX queue
-  std::queue<std::vector<uint8_t>> txQueue_;
+  constexpr static size_t NUM_FRAMES = 4;
+  RingBuffer<NUM_FRAMES, protocol::MAX_FRAME_SIZE> txQueue_;
   bool txBusy_ {false};
 };

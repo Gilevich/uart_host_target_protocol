@@ -145,9 +145,12 @@ void Target::setLedsInConnectedState()
 // -----------------------------------------------------------------------------
 void Target::sendFrame(protocol::signalIdE sig)
 {
-  std::array<uint8_t, Protocol::MAX_FRAME_SIZE> frame;
+  std::array<uint8_t, protocol::MAX_FRAME_SIZE> frame;
   size_t frameSize = protocol::encodeFrame(sig, {}, 0, frame.data());
-  txQueue_.push(std::vector<uint8_t>(frame.data(), frame.data() + frameSize));
+  if(!txQueue_.push(frame.data(), frameSize))
+  {
+    // TX queue full, frame dropped
+  };
 }
 
 void Target::tryStartTx()
@@ -155,10 +158,13 @@ void Target::tryStartTx()
   if (txBusy_ || txQueue_.empty())
     return;
 
-  auto& f = txQueue_.front();
-  txBusy_ = true;
-
-  HAL_UART_Transmit_IT(&huart1, f.data(), f.size());
+  const uint8_t* frame;
+  size_t len;
+  if (txQueue_.front(frame, len))
+  {
+    txBusy_ = true;
+    HAL_UART_Transmit_IT(&huart1, frame, len);
+  }
 }
 
 // -----------------------------------------------------------------------------
