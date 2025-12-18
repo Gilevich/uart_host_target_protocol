@@ -1,6 +1,7 @@
 #include "host.hpp"
+
 #include <iostream>
-#include <atomic>
+#include <array>
 
 Host::Host(const std::string& comPort)
   : comPort_{comPort}{};
@@ -10,7 +11,9 @@ Host::~Host()
   disconnect();
 }
 
+// ------------------------------------------------------------------
 // COM port handling
+// ------------------------------------------------------------------
 bool Host::openPort()
 {
   serial_ = CreateFileA(
@@ -62,7 +65,9 @@ void Host::closePort()
   }
 }
 
+// -----------------------------------------------------------------------------
 // Main connection logic
+// -----------------------------------------------------------------------------
 void Host::connect()
 {
   init();
@@ -70,7 +75,9 @@ void Host::connect()
   mainLoop();
 }
 
+// -----------------------------------------------------------------------------
 // State machine
+// -----------------------------------------------------------------------------
 void Host::changeState(StateE newState)
 {
   state_ = newState;
@@ -95,37 +102,42 @@ void Host::changeState(StateE newState)
   }
 }
 
+// -----------------------------------------------------------------------------
 // Wait for CONNECT_CFM with timeout
+// -----------------------------------------------------------------------------
 void Host::waitingConnectCfm()
 {
   using namespace std::chrono_literals;
   while(state_ == StateE::CONNECTING &&
-        !connectCfmReceived.load())
+        !connectCfmReceived_.load())
   {
     auto now = std::chrono::steady_clock::now();
     auto diff = now - lastRxTime_;
-    if (diff > 5s)
+    if (diff > CONNECT_TIMEOUT)
     {
       std::cout << "[host] Connection timeout: " << std::endl;
       changeState(StateE::DISCONNECTING);
     }
-    std::this_thread::sleep_for(1s);
+    std::this_thread::sleep_for(CONNECT_POLL_DELAY);
   }
 }
 
+// -----------------------------------------------------------------------------
 // Main loop in CONNECTED state
+// -----------------------------------------------------------------------------
 void Host::mainLoop()
 {
   using namespace std::chrono_literals;
   auto nextTickTime = std::chrono::steady_clock::now();
   while(state_ == StateE::CONNECTED)
   {
-    nextTickTime += 1s;
+    nextTickTime += TICK_PERIOD;
     sendTickInd();
+
     auto now = std::chrono::steady_clock::now();
     auto diff = now - lastRxTime_;
     auto diff_s = std::chrono::duration_cast<std::chrono::seconds>(diff).count();
-    if (diff > 5s)
+    if (diff > CONNECT_TIMEOUT)
     {
       std::cout << "Connection lost: " << diff_s << "s" << std::endl;
       changeState(StateE::DISCONNECTING);
@@ -134,11 +146,13 @@ void Host::mainLoop()
   }
 }
 
+// -----------------------------------------------------------------------------
 // RX handling thread
+// -----------------------------------------------------------------------------
 void Host::rxThread()
 {
-  uint8_t byte;
-  DWORD read;
+  uint8_t byte {0};
+  DWORD read {0};
 
   while (portOpened_)
   {
@@ -158,12 +172,14 @@ void Host::rxThread()
     else
     {
       // No data read, small sleep to avoid busy wait
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      std::this_thread::sleep_for(RX_IDLE_SLEEP);
     }
   }
 }
 
+// -----------------------------------------------------------------------------
 // Signal handling
+// -----------------------------------------------------------------------------
 void Host::handleSignal(const protocol::FrameS& frame)
 {
   switch (frame.sigId)
@@ -171,7 +187,7 @@ void Host::handleSignal(const protocol::FrameS& frame)
   case protocol::signalIdE::CONNECT_CFM:
     if (state_ == StateE::CONNECTING)
     {
-      connectCfmReceived.store(true);
+      connectCfmReceived_.store(true);
       changeState(StateE::CONNECTED);
     }
     break;
@@ -187,7 +203,9 @@ void Host::handleSignal(const protocol::FrameS& frame)
   }
 }
 
+// -----------------------------------------------------------------------------
 // Initialization
+// -----------------------------------------------------------------------------
 bool Host::init()
 {
   if (!openPort())
@@ -203,7 +221,9 @@ bool Host::init()
   return true;
 }
 
+// -----------------------------------------------------------------------------
 // Disconnection
+// -----------------------------------------------------------------------------
 void Host::disconnect()
 {
   portOpened_ = false;
@@ -213,7 +233,21 @@ void Host::disconnect()
   closePort();
 }
 
+
+// -----------------------------------------------------------------------------
 // Signal sending
+// -----------------------------------------------------------------------------
+
+void Host::sendSignal(protocol::signalIdE sig,
+                      const std::vector<uint8_t>& payload)
+{
+  std::array<uint8_t, protocol::MAX_FRAME_SIZE> frame;
+  size_t frameSize = protocol::encodeFrame(sig, payload.data(), payload.size(), frame.data());
+
+  DWORD written = 0;
+  WriteFile(serial_, frame.data(), static_cast<DWORD>(frameSize), &written, nullptr);
+}
+
 void Host::sendConnectReq()
 {
   std::cout << "[host] Send CONNECT_REQ" << std::endl;
@@ -235,16 +269,6 @@ void Host::sendTickInd()
   std::cout << "[host] Send TICK_IND" << std::endl;
   tickCfmPending_ = true;
   sendSignal(protocol::signalIdE::TICK_IND);
-}
-
-void Host::sendSignal(protocol::signalIdE sig,
-                      const std::vector<uint8_t>& payload)
-{
-  std::array<uint8_t, protocol::MAX_FRAME_SIZE> frame;
-  size_t frameSize = protocol::encodeFrame(sig, payload.data(), payload.size(), frame.data());
-
-  DWORD written = 0;
-  WriteFile(serial_, frame.data(), static_cast<DWORD>(frameSize), &written, nullptr);
 }
 
 void Host::sendButtonCfm()

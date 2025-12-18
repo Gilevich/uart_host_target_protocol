@@ -2,14 +2,15 @@
 
 #include "Protocol.hpp"
 
-#include <array>
 #include <cstring>
+#include <cstddef>
+#include <cstdint>
 
 template<size_t NUM_FRAMES, size_t FRAME_SIZE>
 class RingBuffer
 {
 public:
-  RingBuffer() : head_{0}, tail_{0}, count_{0} {};
+  RingBuffer() = default;
 
   bool push(const uint8_t* frame, size_t len)
   {
@@ -17,38 +18,36 @@ public:
       return false;
 
     std::memcpy(buffer_[head_], frame, len);
-    lengths_[head_] = len;
 
-    head_ = (head_ + 1) % NUM_FRAMES;
+    head_ = (head_ + 1U) % NUM_FRAMES;
     ++count_;
     return true;
   }
 
   bool pop()
   {
-    if (count_ == 0)
+    if (count_ == 0U)
       return false;
 
-    tail_ = (tail_ + 1) % NUM_FRAMES;
+    tail_ = (tail_ + 1U) % NUM_FRAMES;
     --count_;
     return true;
   }
 
   bool front(const uint8_t*& frame) const
   {
-    if (count_ == 0)
+    if (count_ == 0U)
       return false;
 
     frame = buffer_[tail_];
     return true;
   }
 
-  bool empty() const {return count_ == 0;}
+  bool empty() const {return count_ == 0U;}
 
 private:
-  uint8_t buffer_[NUM_FRAMES][FRAME_SIZE];
-  size_t lengths_[NUM_FRAMES];
-  size_t head_;
-  size_t tail_;
-  size_t count_;
+  uint8_t buffer_[NUM_FRAMES][FRAME_SIZE] {};
+  size_t head_ {0};
+  size_t tail_ {0};
+  size_t count_ {0};
 };

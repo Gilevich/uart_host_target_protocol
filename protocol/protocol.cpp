@@ -1,5 +1,4 @@
 #include "protocol.hpp"
-#include <array>
 
 namespace protocol
 {
@@ -35,7 +34,7 @@ namespace protocol
     size_t byteIndex{0};
     outFrame[byteIndex++] = SOF;
     
-    uint8_t len = static_cast<uint8_t>(1 + payloadLen);
+    uint8_t len = static_cast<uint8_t>(1U + payloadLen);
     outFrame[byteIndex++] = len;
 
     outFrame[byteIndex++] = static_cast<uint8_t>(sigId);
@@ -44,7 +43,7 @@ namespace protocol
     {
       outFrame[byteIndex++] = payload[i];
     }
-    uint8_t crc = crc8(&outFrame[2], len);
+    uint8_t crc = crc8(&outFrame[2], len); // CRC over [SIG][PAYLOAD...]
     outFrame[byteIndex++] = crc;
 
     return byteIndex;

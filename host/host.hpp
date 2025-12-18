@@ -1,11 +1,14 @@
 #pragma once
 
 #include "../protocol/protocol.hpp"
+
 #include <string>
 #include <thread>
 #include <atomic>
 #include <chrono>
 #include <vector>
+#include <cstdint>
+
 #include <windows.h>
 
 
@@ -21,6 +24,12 @@ public:
 
   void connect();
 private:
+  // --- Constants ------------------------------------------------
+  static constexpr auto CONNECT_TIMEOUT    = std::chrono::seconds{5};
+  static constexpr auto TICK_PERIOD        = std::chrono::seconds{1};
+  static constexpr auto CONNECT_POLL_DELAY = std::chrono::seconds{1};
+  static constexpr auto RX_IDLE_SLEEP      = std::chrono::milliseconds{10};
+
   enum class StateE
   {
     INIT,
@@ -57,7 +66,7 @@ private:
   // --- Internal data members ------------------------------------------------
   // COM port
   std::string comPort_;
-  HANDLE serial_ = INVALID_HANDLE_VALUE;
+  HANDLE serial_ {INVALID_HANDLE_VALUE};
   std::atomic<bool> portOpened_ {false};
 
   // Protocol
@@ -68,11 +77,11 @@ private:
 
   // State
   std::atomic<StateE> state_ {StateE::INIT};
-  std::atomic<bool> connectCfmReceived{false};
+  std::atomic<bool> connectCfmReceived_ {false};
 
   // Time tracking
-  std::chrono::steady_clock::time_point lastRxTime_;
+  std::chrono::steady_clock::time_point lastRxTime_ {};
 
   // Tick handling
-  std::atomic<bool> tickCfmPending_{false};
+  std::atomic<bool> tickCfmPending_ {false};
 };

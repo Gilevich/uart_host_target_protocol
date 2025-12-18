@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <vector>
 #include <array>
 
 namespace protocol
@@ -31,15 +30,15 @@ namespace protocol
   // Protocol frame structure
   struct FrameS
   {
-    signalIdE sigId;
-    std::array<uint8_t, MAX_PAYLOAD + 1> payload; ///< optional payload data (+1 for sigId)
+    signalIdE sigId {};
+    std::array<uint8_t, MAX_PAYLOAD> payload {}; ///< optional payload data
   };
 
   // Result of frame decoding
   struct frameResult
   {
-    bool  valid{false};  ///< True if a complete and valid frame was decoded
-    FrameS frame;        ///< Decoded frame (valid only if valid == true)
+    bool  valid {false};  ///< True if a complete and valid frame was decoded
+    FrameS frame {};        ///< Decoded frame (valid only if valid == true)
   };
 
   // --- Protocol encoding/decoding ------------------------------------------------
@@ -79,9 +78,9 @@ namespace protocol
       PAYLOAD_READING,
       CRC_READING
     };
-    rxStateE state_ = rxStateE::SOF_WAITING;
-    uint8_t len_ = 0;
-    std::array<uint8_t, MAX_PAYLOAD + 1> buffer_;
+    rxStateE state_ {rxStateE::SOF_WAITING};
+    uint8_t len_ {0};
+    std::array<uint8_t, MAX_PAYLOAD + 1> buffer_ {}; // +1 for sigId
     size_t bufferIndex_ {0};
   };
 } // namespace protocol

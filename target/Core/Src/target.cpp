@@ -48,7 +48,7 @@ void Target::process()
 
   // Connecting timeout
   if (state_ != StateE::IDLE &&
-     static_cast<uint32_t>(msCounter_ - lastRxTime_) >= TICK_TIMEOUT_MS)
+      static_cast<uint32_t>(msCounter_ - lastRxTime_) >= TICK_TIMEOUT_MS)
   {
     changeState(StateE::IDLE);
   }
