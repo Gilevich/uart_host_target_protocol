@@ -17,8 +17,6 @@ It is implemented in **C++11** and uses a simple protocol with error detection a
 
 ## Target architecture
 
-The STM32F411E-DISCO target implements the following behavior:
-
 - Use TIM10 to increment internal time counter used to control LEDs blinking
 - Button presses are handled in interrupt context
 - UART TX and RX use callback functions
